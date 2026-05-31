@@ -1,0 +1,54 @@
+# Render manifest for `Adaptive-Learning-Plateform-Backend`.
+# This file codifies a Docker web service plus a managed Postgres database.
+# After pushing, use Render's "Create a new service from Render.yaml" flow.
+
+services:
+  - type: web
+    name: adaptive-learning-backend
+    env: docker
+    repo: https://github.com/FahadAliOfficial/Adaptive-Learning-Plateform-Backend
+    branch: main
+    plan: free
+    autoDeploy: true
+    dockerfilePath: Dockerfile
+    healthCheckPath: /api/health
+    buildCommand: null
+    startCommand: null
+    envVars:
+      # DATABASE_URL will be populated from the managed database below
+      - key: DATABASE_URL
+        fromDatabase:
+          name: adaptive-learning-db
+          property: connectionString
+
+      # Required secrets and configuration (set these as secure in Render)
+      - key: OPENAI_API_KEY
+        secure: true
+      - key: SECRET_KEY
+        secure: true
+
+      # Non-secret defaults (override in Render if needed)
+      - key: ENVIRONMENT
+        value: production
+      - key: RATE_LIMIT_ENABLED
+        value: "true"
+      - key: ADMIN_EMAILS
+        value: admin@example.com,superadmin@example.com
+
+    # Optional: increase instance size if you plan to load RL models on startup
+    # instanceType: starter
+
+# Managed Postgres database for the service
+databases:
+  - name: adaptive-learning-db
+    plan: free
+    engine: POSTGRESQL
+    version: "13"
+
+# Guidance:
+# - After creating the service, open the Render service > Environment and ensure
+#   `OPENAI_API_KEY` and `SECRET_KEY` are entered as secure values.
+# - If you prefer to use an external DB provider (Supabase/Neon), replace the
+#   `DATABASE_URL` mapping with a manual `DATABASE_URL` env var value.
+# - If RL models are heavy, consider setting an env var to disable model loading
+#   at startup and enable it only on larger instances.
