@@ -1,54 +1,65 @@
-# Render manifest for `Adaptive-Learning-Plateform-Backend`.
-# This file codifies a Docker web service plus a managed Postgres database.
-# After pushing, use Render's "Create a new service from Render.yaml" flow.
+# Render manifest for Adaptive-Learning-Plateform-Backend.
+# Web app + Postgres + Key Value, wired together through internal URLs.
+
+previews:
+  generation: off
+
+envVarGroups:
+  - name: adaptive-learning-common
+    envVars:
+      - key: ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "30"
+      - key: REFRESH_TOKEN_EXPIRE_DAYS
+        value: "7"
+      - key: RATE_LIMIT_ENABLED
+        value: "true"
+      - key: ENVIRONMENT
+        value: production
+      - key: ADMIN_EMAILS
+        value: admin@example.com,superadmin@example.com
 
 services:
   - type: web
     name: adaptive-learning-backend
-    env: docker
+    runtime: docker
     repo: https://github.com/FahadAliOfficial/Adaptive-Learning-Plateform-Backend
     branch: main
     plan: free
-    autoDeploy: true
+    autoDeployTrigger: commit
     dockerfilePath: Dockerfile
+    region: oregon
     healthCheckPath: /api/health
-    buildCommand: null
-    startCommand: null
     envVars:
-      # DATABASE_URL will be populated from the managed database below
+      - fromGroup: adaptive-learning-common
       - key: DATABASE_URL
         fromDatabase:
           name: adaptive-learning-db
           property: connectionString
-
-      # Required secrets and configuration (set these as secure in Render)
+      - key: REDIS_URL
+        fromService:
+          name: adaptive-learning-redis
+          type: keyvalue
+          property: connectionString
       - key: OPENAI_API_KEY
-        secure: true
+        sync: false
       - key: SECRET_KEY
-        secure: true
+        generateValue: true
+      - key: DISABLE_RL_MODELS
+        value: "false"
 
-      # Non-secret defaults (override in Render if needed)
-      - key: ENVIRONMENT
-        value: production
-      - key: RATE_LIMIT_ENABLED
-        value: "true"
-      - key: ADMIN_EMAILS
-        value: admin@example.com,superadmin@example.com
+  - type: keyvalue
+    name: adaptive-learning-redis
+    plan: free
+    region: oregon
+    ipAllowList: []
+    maxmemoryPolicy: allkeys-lru
 
-    # Optional: increase instance size if you plan to load RL models on startup
-    # instanceType: starter
-
-# Managed Postgres database for the service
 databases:
   - name: adaptive-learning-db
     plan: free
-    engine: POSTGRESQL
-    version: "13"
-
-# Guidance:
-# - After creating the service, open the Render service > Environment and ensure
-#   `OPENAI_API_KEY` and `SECRET_KEY` are entered as secure values.
-# - If you prefer to use an external DB provider (Supabase/Neon), replace the
-#   `DATABASE_URL` mapping with a manual `DATABASE_URL` env var value.
-# - If RL models are heavy, consider setting an env var to disable model loading
-#   at startup and enable it only on larger instances.
+    region: oregon
+    databaseName: adaptive_learning_db
+    user: adaptive_learning_user
+    postgresMajorVersion: "13"
